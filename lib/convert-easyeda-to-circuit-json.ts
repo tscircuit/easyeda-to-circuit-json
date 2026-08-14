@@ -3,6 +3,7 @@ import {
   EasyEdaSchematicList,
   parseEasyEdaSource,
 } from "easyedats"
+import { convertEasyEdaPcb } from "./pcb/convert-easyeda-pcb"
 import { convertEasyEdaSchematic } from "./schematic/convert-easyeda-schematic"
 import type {
   ConvertEasyEdaDocumentToCircuitJsonOptions,
@@ -44,6 +45,15 @@ export function convertEasyEdaDocumentToCircuitJson({
         },
       ],
     }
+  }
+  if (
+    selectedDocument.kind === "pcb" ||
+    selectedDocument.kind === "pcb-footprint"
+  ) {
+    return convertEasyEdaPcb({
+      easyEdaDocument: selectedDocument,
+      documentId,
+    })
   }
   if (
     selectedDocument.kind !== "schematic" &&

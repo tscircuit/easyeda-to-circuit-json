@@ -9,6 +9,7 @@ import {
 import {
   convertEasyEdaDocumentToCircuitJson,
   convertEasyEdaToCircuitJson,
+  EASYEDA_PCB_UNIT_TO_MM,
   EASYEDA_SCHEMATIC_UNIT_TO_MM,
 } from "lib"
 import {
@@ -112,14 +113,48 @@ test("reports unsupported EasyEDA records with source identity", () => {
   })
 })
 
-test("reports unsupported PCB documents without inventing a PCB schema", () => {
-  const source = JSON.stringify({
-    head: "3~1.11.3",
-    canvas: "CA~100~100~#000000~yes~#CCCCCC~10~100~100~line~10~pixel~5",
-    shape: [],
-  })
-  const result = convertEasyEdaToCircuitJson({ source })
+const pcbFixtureSource = JSON.stringify({
+  head: "3~1.11.3",
+  canvas: "CA~100~100~#000000~yes~#CCCCCC~10~100~100~line~10~pixel~5",
+  shape: [
+    "TRACK~1~10~~0 0 100 0 100 80 0 80 0 0~gge-board",
+    "LIB~20~20~package`R`value`1k`~0~~gge-lib~1#@$TEXT~N~20~15~0~0~top~3~3~0~R1~gge-text#@$PAD~RECT~10~20~4~4~1~N1~1~0~gge-p1#@$PAD~RECT~30~20~4~4~1~N2~2~0~gge-p2",
+    "TRACK~1~1~N1~10 20 30 20~gge-trace",
+  ],
+})
 
-  expect(result.circuitJson).toEqual([])
-  expect(result.diagnostics[0]?.code).toBe("unsupported-document-kind")
+test("converts EasyEDA PCB documents to typed Circuit JSON", () => {
+  const result = convertEasyEdaToCircuitJson({
+    source: pcbFixtureSource,
+    documentId: "pcb-fixture",
+  })
+
+  expect(result.diagnostics).toEqual([])
+  expect(
+    result.circuitJson.filter((element) => element.type === "pcb_board"),
+  ).toHaveLength(1)
+  expect(
+    result.circuitJson.filter((element) => element.type === "pcb_component"),
+  ).toHaveLength(1)
+  expect(
+    result.circuitJson.filter((element) => element.type === "pcb_smtpad"),
+  ).toHaveLength(2)
+  expect(
+    result.circuitJson.filter((element) => element.type === "pcb_trace"),
+  ).toHaveLength(1)
+  expect(
+    result.circuitJson.filter((element) => element.type === "source_trace"),
+  ).toHaveLength(1)
+
+  const board = result.circuitJson.find(
+    (element) => element.type === "pcb_board",
+  )
+  expect(board).toMatchObject({
+    width: 100 * EASYEDA_PCB_UNIT_TO_MM,
+    height: 80 * EASYEDA_PCB_UNIT_TO_MM,
+  })
+  for (const element of result.circuitJson) {
+    const parsed = any_circuit_element.safeParse(element)
+    expect(parsed.success, element.type).toBe(true)
+  }
 })
