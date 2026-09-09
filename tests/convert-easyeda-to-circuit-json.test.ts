@@ -12,6 +12,7 @@ import {
   EASYEDA_SCHEMATIC_UNIT_TO_MM,
 } from "lib"
 import {
+  pathAndArcSource,
   schematicFixtureCases,
   unsupportedShapeSource,
 } from "tests/fixtures/schematic-cases"
@@ -105,10 +106,36 @@ test("reports unsupported EasyEDA records with source identity", () => {
   expect(result.diagnostics).toContainEqual({
     code: "unsupported-shape",
     severity: "warning",
-    message: "EasyEDA PT conversion is not implemented yet",
+    message: "EasyEDA PI conversion is not implemented yet",
     documentPath: ["shape", 0],
-    recordToken: "PT",
-    sourceShapeId: "gge-path-unsupported",
+    recordToken: "PI",
+    sourceShapeId: "gge-pie-unsupported",
+  })
+})
+
+test("converts EasyEDA path and arc records to schematic paths", () => {
+  const result = convertEasyEdaToCircuitJson({
+    source: pathAndArcSource,
+  })
+  const paths = result.circuitJson.filter(
+    (element) => element.type === "schematic_path",
+  )
+  expect(result.diagnostics).toEqual([])
+  expect(paths).toHaveLength(2)
+  expect(paths[0]?.points).toEqual([
+    {
+      x: 20 * EASYEDA_SCHEMATIC_UNIT_TO_MM,
+      y: -20 * EASYEDA_SCHEMATIC_UNIT_TO_MM,
+    },
+    {
+      x: 120 * EASYEDA_SCHEMATIC_UNIT_TO_MM,
+      y: -80 * EASYEDA_SCHEMATIC_UNIT_TO_MM,
+    },
+  ])
+  expect(paths[1]?.points.length).toBeGreaterThan(2)
+  expect(paths[1]?.points[0]).toEqual({
+    x: 40 * EASYEDA_SCHEMATIC_UNIT_TO_MM,
+    y: -60 * EASYEDA_SCHEMATIC_UNIT_TO_MM,
   })
 })
 
