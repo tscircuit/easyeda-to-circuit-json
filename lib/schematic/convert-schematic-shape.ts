@@ -1,5 +1,6 @@
 import type { Point, SchematicTrace } from "circuit-json"
 import {
+  EasyEdaArc,
   EasyEdaBus,
   EasyEdaBusEntry,
   EasyEdaCircle,
@@ -9,6 +10,7 @@ import {
   EasyEdaLine,
   EasyEdaNetLabel,
   EasyEdaNoConnect,
+  EasyEdaPath,
   EasyEdaPolygon,
   EasyEdaPolyline,
   EasyEdaRectangle,
@@ -24,6 +26,7 @@ import {
   type ShapeConversionLocation,
 } from "./conversion-context"
 import { convertEasyEdaLength, convertEasyEdaPoint } from "./coordinates"
+import { parseEasyEdaSvgPath } from "./parse-easyeda-svg-path"
 import {
   readEasyEdaFontSize,
   readFillColor,
@@ -472,7 +475,7 @@ function convertPointPath({
   closePath,
 }: {
   context: SchematicConversionContext
-  shape: EasyEdaPolyline | EasyEdaPolygon
+  shape: EasyEdaShape
   location: ShapeConversionLocation
   points: Point[]
   closePath: boolean
@@ -506,6 +509,30 @@ function convertPointPath({
     is_filled: fillColor !== undefined,
     ...(fillColor ? { fill_color: fillColor } : {}),
     is_dashed: false,
+  })
+}
+
+function convertSvgPathShape({
+  context,
+  shape,
+  location,
+}: {
+  context: SchematicConversionContext
+  shape: EasyEdaPath | EasyEdaArc
+  location: ShapeConversionLocation
+}) {
+  const pathData = shape.path
+  if (!pathData) {
+    reportInvalidGeometry({ context, shape, location })
+    return
+  }
+  const parsed = parseEasyEdaSvgPath(pathData)
+  convertPointPath({
+    context,
+    shape,
+    location,
+    points: parsed.points.map(convertEasyEdaPoint),
+    closePath: parsed.closed,
   })
 }
 
@@ -717,6 +744,8 @@ export function convertSchematicShape({
       points: shape.points.map(convertEasyEdaPoint),
       closePath: true,
     })
+  } else if (shape instanceof EasyEdaPath || shape instanceof EasyEdaArc) {
+    convertSvgPathShape({ context, shape, location })
   } else if (shape instanceof EasyEdaSchematicText) {
     convertText({ context, shape, location })
   } else if (shape instanceof EasyEdaNetLabel) {
